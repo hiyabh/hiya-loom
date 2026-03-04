@@ -1,0 +1,1401 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Screen Recorder</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --accent: #625df5;
+      --accent-dim: rgba(98, 93, 245, 0.15);
+      --accent-border: rgba(98, 93, 245, 0.5);
+      --bg: #0c0c0f;
+      --surface: #16161d;
+      --surface-2: #1e1e28;
+      --border: #2a2a38;
+      --text: #e2e2f0;
+      --muted: #5a5a7a;
+      --red: #e8445a;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: system-ui, -apple-system, sans-serif;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 32px 16px;
+    }
+
+    /* ── Setup screen ── */
+    #setup {
+      width: 100%;
+      max-width: 480px;
+      display: flex;
+      flex-direction: column;
+      gap: 28px;
+    }
+
+    .brand {
+      text-align: center;
+    }
+
+    .brand-icon {
+      width: 44px;
+      height: 44px;
+      background: var(--accent-dim);
+      border: 1px solid var(--accent-border);
+      border-radius: 12px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 12px;
+    }
+
+    .brand-icon svg { color: var(--accent); }
+
+    .brand h1 {
+      font-size: 1.25rem;
+      font-weight: 600;
+      letter-spacing: -0.01em;
+    }
+
+    .brand p {
+      font-size: 0.82rem;
+      color: var(--muted);
+      margin-top: 4px;
+    }
+
+    /* ── Section label ── */
+    .section-label {
+      font-size: 0.72rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: var(--muted);
+      margin-bottom: 10px;
+    }
+
+    /* ── Source cards ── */
+    .source-cards {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+    }
+
+    .source-card {
+      background: var(--surface);
+      border: 1.5px solid var(--border);
+      border-radius: 14px;
+      padding: 18px 12px 14px;
+      cursor: pointer;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 10px;
+      transition: border-color 0.15s, background 0.15s, box-shadow 0.15s;
+      user-select: none;
+    }
+
+    .source-card:hover {
+      border-color: var(--accent-border);
+      background: var(--surface-2);
+    }
+
+    .source-card.selected {
+      border-color: var(--accent);
+      background: var(--accent-dim);
+      box-shadow: 0 0 0 1px var(--accent);
+    }
+
+    .source-card .card-icon {
+      width: 40px;
+      height: 40px;
+      border-radius: 10px;
+      background: var(--surface-2);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: background 0.15s;
+    }
+
+    .source-card.selected .card-icon {
+      background: rgba(98, 93, 245, 0.25);
+    }
+
+    .source-card svg {
+      color: var(--muted);
+      transition: color 0.15s;
+    }
+
+    .source-card.selected svg { color: var(--accent); }
+
+    .source-card span {
+      font-size: 0.8rem;
+      font-weight: 500;
+      color: var(--muted);
+      transition: color 0.15s;
+    }
+
+    .source-card.selected span { color: var(--text); }
+
+    /* ── Toggle cards (webcam / mic) ── */
+    .toggle-cards {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+
+    .toggle-card {
+      background: var(--surface);
+      border: 1.5px solid var(--border);
+      border-radius: 14px;
+      padding: 16px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      transition: border-color 0.15s, background 0.15s, box-shadow 0.15s;
+      user-select: none;
+    }
+
+    .toggle-card:hover {
+      border-color: var(--accent-border);
+      background: var(--surface-2);
+    }
+
+    .toggle-card.selected {
+      border-color: var(--accent);
+      background: var(--accent-dim);
+      box-shadow: 0 0 0 1px var(--accent);
+    }
+
+    .toggle-card .toggle-icon {
+      width: 36px;
+      height: 36px;
+      border-radius: 9px;
+      background: var(--surface-2);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      transition: background 0.15s;
+    }
+
+    .toggle-card.selected .toggle-icon {
+      background: rgba(98, 93, 245, 0.25);
+    }
+
+    .toggle-card svg {
+      color: var(--muted);
+      transition: color 0.15s;
+    }
+
+    .toggle-card.selected svg { color: var(--accent); }
+
+    .toggle-info { flex: 1; }
+
+    .toggle-info strong {
+      display: block;
+      font-size: 0.85rem;
+      font-weight: 500;
+      color: var(--text);
+    }
+
+    .toggle-info small {
+      font-size: 0.73rem;
+      color: var(--muted);
+    }
+
+    .pill {
+      width: 32px;
+      height: 18px;
+      border-radius: 9px;
+      background: var(--border);
+      position: relative;
+      flex-shrink: 0;
+      transition: background 0.2s;
+    }
+
+    .toggle-card.selected .pill { background: var(--accent); }
+
+    .pill::after {
+      content: '';
+      position: absolute;
+      top: 3px;
+      left: 3px;
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      background: #fff;
+      transition: transform 0.2s;
+    }
+
+    .toggle-card.selected .pill::after { transform: translateX(14px); }
+
+    /* ── Start button ── */
+    #startBtn {
+      width: 100%;
+      padding: 15px;
+      background: var(--accent);
+      color: #fff;
+      border: none;
+      border-radius: 14px;
+      font-size: 1rem;
+      font-weight: 600;
+      cursor: pointer;
+      letter-spacing: -0.01em;
+      transition: opacity 0.15s, transform 0.1s, box-shadow 0.15s;
+      box-shadow: 0 4px 24px rgba(98, 93, 245, 0.35);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+
+    #startBtn:hover { opacity: 0.9; box-shadow: 0 6px 30px rgba(98, 93, 245, 0.45); }
+    #startBtn:active { transform: scale(0.985); }
+
+    #error {
+      font-size: 0.8rem;
+      color: var(--red);
+      text-align: center;
+      min-height: 1.1em;
+    }
+
+    /* ── Recording screen ── */
+    #recording-screen {
+      display: none;
+      width: 100%;
+      height: 100vh;
+      position: fixed;
+      inset: 0;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      background: #08080b;
+    }
+
+    #recording-screen.active { display: flex; }
+
+    #preview {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+    }
+
+    /* ── Floating control bar ── */
+    .rec-bar {
+      position: fixed;
+      bottom: 28px;
+      left: 50%;
+      transform: translateX(-50%);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 10px 14px;
+      background: rgba(14, 14, 18, 0.72);
+      backdrop-filter: blur(18px) saturate(1.4);
+      -webkit-backdrop-filter: blur(18px) saturate(1.4);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 16px;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+      z-index: 10;
+      white-space: nowrap;
+    }
+
+    /* status indicator */
+    .rec-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--red);
+      flex-shrink: 0;
+      transition: background 0.3s;
+    }
+
+    .rec-dot.recording { animation: blink 1.2s ease-in-out infinite; }
+    .rec-dot.paused    { background: #f59e0b; animation: none; }
+
+    @keyframes blink {
+      0%, 100% { opacity: 1; }
+      50%       { opacity: 0.15; }
+    }
+
+    /* timer */
+    #recTimer {
+      font-size: 0.88rem;
+      font-weight: 600;
+      font-variant-numeric: tabular-nums;
+      letter-spacing: 0.03em;
+      color: var(--text);
+      min-width: 3.6ch;
+    }
+
+    /* divider */
+    .bar-sep {
+      width: 1px;
+      height: 18px;
+      background: rgba(255,255,255,0.1);
+      margin: 0 4px;
+    }
+
+    /* shared bar button base */
+    .bar-btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border: none;
+      border-radius: 10px;
+      cursor: pointer;
+      transition: background 0.15s, transform 0.1s;
+      flex-shrink: 0;
+    }
+
+    .bar-btn:active { transform: scale(0.93); }
+
+    /* pause / resume */
+    #pauseBtn {
+      width: 36px;
+      height: 36px;
+      background: rgba(255,255,255,0.08);
+      color: var(--text);
+    }
+
+    #pauseBtn:hover { background: rgba(255,255,255,0.14); }
+
+    /* stop */
+    #stopBtn {
+      width: 36px;
+      height: 36px;
+      background: rgba(232, 68, 90, 0.18);
+      color: var(--red);
+    }
+
+    #stopBtn:hover { background: rgba(232, 68, 90, 0.32); }
+
+    /* ── Countdown overlay ── */
+    #countdown {
+      display: none;
+      position: fixed;
+      inset: 0;
+      z-index: 100;
+      align-items: center;
+      justify-content: center;
+      background: rgba(8, 8, 11, 0.6);
+      backdrop-filter: blur(6px);
+      -webkit-backdrop-filter: blur(6px);
+    }
+
+    #countdown.active { display: flex; }
+
+    #countdown-num {
+      font-size: 11rem;
+      font-weight: 800;
+      line-height: 1;
+      letter-spacing: -0.05em;
+      color: #fff;
+      opacity: 0;
+      text-shadow: 0 0 80px rgba(98,93,245,0.6);
+    }
+
+    #countdown-num.pop {
+      animation: countPop 0.85s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+    }
+
+    @keyframes countPop {
+      0%   { opacity: 0; transform: scale(1.7); }
+      18%  { opacity: 1; transform: scale(1); }
+      75%  { opacity: 1; transform: scale(1); }
+      100% { opacity: 0; transform: scale(0.55); }
+    }
+
+    /* ── Done screen ── */
+    #done-screen {
+      display: none;
+      position: fixed;
+      inset: 0;
+      z-index: 50;
+      background: #08080b;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 20px;
+      padding: 40px 24px;
+    }
+
+    #done-screen.active { display: flex; }
+
+    .done-label {
+      font-size: 0.75rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: var(--muted);
+    }
+
+    #done-preview {
+      width: 100%;
+      max-width: 820px;
+      aspect-ratio: 16 / 9;
+      border-radius: 16px;
+      background: #000;
+      border: 1px solid var(--border);
+      outline: none;
+    }
+
+    .done-actions {
+      display: flex;
+      gap: 10px;
+      margin-top: 4px;
+    }
+
+    #downloadBtn {
+      padding: 12px 26px;
+      background: var(--accent);
+      color: #fff;
+      border: none;
+      border-radius: 12px;
+      font-size: 0.9rem;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      box-shadow: 0 4px 20px rgba(98,93,245,0.35);
+      transition: opacity 0.15s, transform 0.1s;
+    }
+
+    #downloadBtn:hover  { opacity: 0.88; }
+    #downloadBtn:active { transform: scale(0.97); }
+
+    #newRecBtn {
+      padding: 12px 24px;
+      background: var(--surface-2);
+      border: 1.5px solid var(--border);
+      border-radius: 12px;
+      color: var(--text);
+      font-size: 0.9rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: border-color 0.15s, background 0.15s, transform 0.1s;
+    }
+
+    #newRecBtn:hover  { border-color: var(--accent-border); background: var(--surface); }
+    #newRecBtn:active { transform: scale(0.97); }
+
+    /* ── MP4 export ── */
+    #exportBtn {
+      padding: 12px 24px;
+      background: var(--surface-2);
+      border: 1.5px solid var(--accent-border);
+      border-radius: 12px;
+      color: var(--accent);
+      font-size: 0.9rem;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      transition: background 0.15s, transform 0.1s;
+    }
+
+    #exportBtn:hover  { background: var(--accent-dim); }
+    #exportBtn:active { transform: scale(0.97); }
+
+    button:disabled { opacity: 0.45; cursor: not-allowed; pointer-events: none; }
+
+    #mp4Progress {
+      width: 100%;
+      max-width: 480px;
+      flex-direction: column;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .progress-track {
+      width: 100%;
+      height: 4px;
+      background: var(--border);
+      border-radius: 2px;
+      overflow: hidden;
+    }
+
+    #mp4ProgressBar {
+      height: 100%;
+      width: 0%;
+      background: var(--accent);
+      border-radius: 2px;
+      transition: width 0.25s ease;
+    }
+
+    #mp4ProgressLabel {
+      font-size: 0.78rem;
+      color: var(--muted);
+    }
+
+    /* ── Webcam bubble ── */
+    #webcam-bubble {
+      position: fixed;
+      bottom: 90px;
+      left: 24px;
+      width: 150px;
+      height: 150px;
+      border-radius: 50%;
+      overflow: hidden;
+      border: 2.5px solid rgba(255,255,255,0.2);
+      box-shadow: 0 6px 28px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,255,255,0.06);
+      cursor: grab;
+      z-index: 11;
+      user-select: none;
+      touch-action: none;
+      display: none;
+      transition: box-shadow 0.15s;
+    }
+
+    #webcam-bubble.visible { display: block; }
+
+    #webcam-bubble:hover {
+      box-shadow: 0 8px 32px rgba(0,0,0,0.7), 0 0 0 1px rgba(255,255,255,0.1);
+    }
+
+    #webcam-bubble.dragging {
+      cursor: grabbing;
+      box-shadow: 0 16px 48px rgba(0,0,0,0.8), 0 0 0 2px rgba(98,93,245,0.5);
+    }
+
+    #webcam-vid {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      transform: scaleX(-1);
+      pointer-events: none;
+      display: block;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ── Setup screen ── -->
+  <div id="setup">
+
+    <div class="brand">
+      <div class="brand-icon">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="10"/>
+          <circle cx="12" cy="12" r="3"/>
+        </svg>
+      </div>
+      <h1>Screen Recorder</h1>
+      <p>Choose your capture source and options below</p>
+    </div>
+
+    <div>
+      <div class="section-label">Capture source</div>
+      <div class="source-cards">
+
+        <div class="source-card selected" data-surface="monitor">
+          <div class="card-icon">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="2" y="3" width="20" height="14" rx="2"/>
+              <path d="M8 21h8M12 17v4"/>
+            </svg>
+          </div>
+          <span>Screen</span>
+        </div>
+
+        <div class="source-card" data-surface="window">
+          <div class="card-icon">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="3" y="3" width="18" height="18" rx="2"/>
+              <path d="M3 9h18"/>
+              <path d="M9 21V9"/>
+            </svg>
+          </div>
+          <span>Window</span>
+        </div>
+
+        <div class="source-card" data-surface="browser">
+          <div class="card-icon">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="10"/>
+              <path d="M2 12h20"/>
+              <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
+            </svg>
+          </div>
+          <span>Browser Tab</span>
+        </div>
+
+      </div>
+    </div>
+
+    <div>
+      <div class="section-label">Options</div>
+      <div class="toggle-cards">
+
+        <div class="toggle-card" id="webcamToggle">
+          <div class="toggle-icon">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M23 7 16 12 23 17V7z"/>
+              <rect x="1" y="5" width="15" height="14" rx="2"/>
+            </svg>
+          </div>
+          <div class="toggle-info">
+            <strong>Webcam</strong>
+            <small>Picture-in-picture</small>
+          </div>
+          <div class="pill"></div>
+        </div>
+
+        <div class="toggle-card selected" id="micToggle">
+          <div class="toggle-icon">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"/>
+              <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+              <line x1="12" y1="19" x2="12" y2="23"/>
+              <line x1="8" y1="23" x2="16" y2="23"/>
+            </svg>
+          </div>
+          <div class="toggle-info">
+            <strong>Microphone</strong>
+            <small>System audio too</small>
+          </div>
+          <div class="pill"></div>
+        </div>
+
+      </div>
+    </div>
+
+    <button id="startBtn">
+      <svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor">
+        <circle cx="12" cy="12" r="10" fill="rgba(255,255,255,0.2)"/>
+        <circle cx="12" cy="12" r="5"/>
+      </svg>
+      Start Recording
+    </button>
+
+    <div id="error"></div>
+
+  </div>
+
+  <!-- ── Recording screen ── -->
+  <div id="recording-screen">
+    <video id="preview" autoplay muted playsinline></video>
+
+    <!-- Draggable webcam picture-in-picture bubble -->
+    <div id="webcam-bubble">
+      <video id="webcam-vid" autoplay muted playsinline></video>
+    </div>
+
+    <div class="rec-bar">
+      <div class="rec-dot recording" id="recDot"></div>
+      <span id="recTimer">0:00</span>
+
+      <div class="bar-sep"></div>
+
+      <!-- Pause / Resume -->
+      <button class="bar-btn" id="pauseBtn" title="Pause">
+        <!-- pause icon (default) -->
+        <svg id="pauseIcon" width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+          <rect x="5"  y="3" width="4" height="18" rx="1"/>
+          <rect x="15" y="3" width="4" height="18" rx="1"/>
+        </svg>
+        <!-- play icon (shown when paused) -->
+        <svg id="resumeIcon" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="display:none">
+          <path d="M6 4l14 8-14 8V4z"/>
+        </svg>
+      </button>
+
+      <!-- Stop -->
+      <button class="bar-btn" id="stopBtn" title="Stop & Save">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+          <rect x="3" y="3" width="18" height="18" rx="2"/>
+        </svg>
+      </button>
+    </div>
+  </div>
+
+  <!-- ── Countdown overlay ── -->
+  <div id="countdown">
+    <span id="countdown-num"></span>
+  </div>
+
+  <!-- ── Done screen ── -->
+  <div id="done-screen">
+    <div class="done-label">Recording complete</div>
+    <video id="done-preview" controls playsinline></video>
+    <div class="done-actions">
+      <button id="downloadBtn">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+          <polyline points="7 10 12 15 17 10"/>
+          <line x1="12" y1="15" x2="12" y2="3"/>
+        </svg>
+        Download WebM
+      </button>
+      <button id="exportBtn">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+          <polyline points="7 10 12 15 17 10"/>
+          <line x1="12" y1="15" x2="12" y2="3"/>
+        </svg>
+        Export MP4
+      </button>
+      <button id="newRecBtn">New Recording</button>
+    </div>
+    <div id="mp4Progress" style="display:none">
+      <div class="progress-track"><div id="mp4ProgressBar"></div></div>
+      <span id="mp4ProgressLabel"></span>
+    </div>
+  </div>
+
+  <script>
+    // ── State ──
+    let selectedSurface = 'monitor';
+    let webcamOn = false;
+    let micOn = true;
+
+    let mediaRecorder = null;
+    let chunks = [];
+    let displayStream = null;
+    let micStream = null;
+    let webcamStream = null;
+    let audioCtx = null;
+    let canvasInterval = null;  // draw-loop interval for canvas compositing
+    let lastBlob = null;
+    let lastFilename = '';
+    let pipWindow = null;       // Document Picture-in-Picture window
+
+    // Bubble position as fractions of the canvas dimensions, updated by drag.
+    // Default: bottom-left (x=2%, y=76% of canvas height)
+    let bubbleNorm = { x: 0.02, y: 0.76 };
+
+    // ── Timer state ──
+    let timerInterval = null;
+    let elapsedSeconds = 0;
+    let isPaused = false;
+
+    // ── Source card selection ──
+    document.querySelectorAll('.source-card').forEach(card => {
+      card.addEventListener('click', () => {
+        document.querySelectorAll('.source-card').forEach(c => c.classList.remove('selected'));
+        card.classList.add('selected');
+        selectedSurface = card.dataset.surface;
+      });
+    });
+
+    // ── Toggle cards ──
+    document.getElementById('webcamToggle').addEventListener('click', () => {
+      webcamOn = !webcamOn;
+      document.getElementById('webcamToggle').classList.toggle('selected', webcamOn);
+    });
+
+    document.getElementById('micToggle').addEventListener('click', () => {
+      micOn = !micOn;
+      document.getElementById('micToggle').classList.toggle('selected', micOn);
+    });
+
+    // ── Helpers ──
+    function pickMimeType() {
+      const candidates = [
+        'video/webm;codecs=vp9,opus',
+        'video/webm;codecs=vp8,opus',
+        'video/webm',
+      ];
+      return candidates.find(t => MediaRecorder.isTypeSupported(t)) || '';
+    }
+
+    function showError(msg) {
+      document.getElementById('error').textContent = msg;
+    }
+
+    // ── Document Picture-in-Picture ──
+    async function openPiP() {
+      if (!('documentPictureInPicture' in window)) return;
+      try {
+        pipWindow = await documentPictureInPicture.requestWindow({ width: 272, height: 68 });
+
+        const style = pipWindow.document.createElement('style');
+        style.textContent = `
+          *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+          body {
+            background: #0e0e12;
+            color: #e2e2f0;
+            font-family: system-ui, -apple-system, sans-serif;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+          }
+          .pip-bar {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 10px 14px;
+            background: #16161d;
+            border-radius: 12px;
+            border: 1px solid rgba(255,255,255,0.08);
+            width: 100%;
+            margin: 0 8px;
+          }
+          .pip-dot {
+            width: 8px; height: 8px;
+            border-radius: 50%;
+            background: #e8445a;
+            flex-shrink: 0;
+            transition: background 0.3s;
+          }
+          .pip-dot.recording { animation: blink 1.2s ease-in-out infinite; }
+          .pip-dot.paused    { background: #f59e0b; animation: none; }
+          @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.15} }
+          .pip-timer {
+            font-size: 0.88rem;
+            font-weight: 600;
+            font-variant-numeric: tabular-nums;
+            letter-spacing: 0.03em;
+            min-width: 3.6ch;
+            flex: 1;
+          }
+          .sep { width: 1px; height: 18px; background: rgba(255,255,255,0.1); margin: 0 2px; }
+          .pip-btn {
+            display: flex; align-items: center; justify-content: center;
+            width: 32px; height: 32px;
+            border: none; border-radius: 8px;
+            cursor: pointer; flex-shrink: 0;
+            transition: background 0.15s;
+          }
+          #pip-pause { background: rgba(255,255,255,0.08); color: #e2e2f0; }
+          #pip-pause:hover { background: rgba(255,255,255,0.14); }
+          #pip-stop  { background: rgba(232,68,90,0.18); color: #e8445a; }
+          #pip-stop:hover  { background: rgba(232,68,90,0.32); }
+        `;
+        pipWindow.document.head.appendChild(style);
+
+        pipWindow.document.body.innerHTML = `
+          <div class="pip-bar">
+            <div class="pip-dot recording" id="pip-dot"></div>
+            <span class="pip-timer" id="pip-timer">0:00</span>
+            <div class="sep"></div>
+            <button class="pip-btn" id="pip-pause" title="Pause">
+              <svg id="pip-pause-icon" width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+                <rect x="5" y="3" width="4" height="18" rx="1"/>
+                <rect x="15" y="3" width="4" height="18" rx="1"/>
+              </svg>
+              <svg id="pip-resume-icon" width="14" height="14" viewBox="0 0 24 24" fill="currentColor" style="display:none">
+                <path d="M6 4l14 8-14 8V4z"/>
+              </svg>
+            </button>
+            <button class="pip-btn" id="pip-stop" title="Stop">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
+                <rect x="3" y="3" width="18" height="18" rx="2"/>
+              </svg>
+            </button>
+          </div>
+        `;
+
+        pipWindow.document.getElementById('pip-pause').addEventListener('click', () => {
+          document.getElementById('pauseBtn').click();
+        });
+        pipWindow.document.getElementById('pip-stop').addEventListener('click', () => {
+          document.getElementById('stopBtn').click();
+        });
+
+        pipWindow.addEventListener('pagehide', () => { pipWindow = null; });
+      } catch (err) {
+        console.warn('Document PiP unavailable:', err.message);
+        pipWindow = null;
+      }
+    }
+
+    function closePiP() {
+      if (pipWindow) { try { pipWindow.close(); } catch (_) {} pipWindow = null; }
+    }
+
+    // ── Webcam bubble drag (pointer events — works for mouse & touch) ──
+    (function setupBubbleDrag() {
+      const bubble = document.getElementById('webcam-bubble');
+      let dragging = false, offX = 0, offY = 0;
+
+      bubble.addEventListener('pointerdown', e => {
+        dragging = true;
+        bubble.setPointerCapture(e.pointerId);
+        bubble.classList.add('dragging');
+        const r = bubble.getBoundingClientRect();
+        offX = e.clientX - r.left;
+        offY = e.clientY - r.top;
+        e.preventDefault();
+      });
+
+      bubble.addEventListener('pointermove', e => {
+        if (!dragging) return;
+        const bw = bubble.offsetWidth, bh = bubble.offsetHeight;
+        const l = Math.max(0, Math.min(window.innerWidth  - bw, e.clientX - offX));
+        const t = Math.max(0, Math.min(window.innerHeight - bh, e.clientY - offY));
+        bubble.style.left   = l + 'px';
+        bubble.style.top    = t + 'px';
+        bubble.style.bottom = 'auto';
+        bubble.style.right  = 'auto';
+        // Keep canvas position in sync (normalized to viewport)
+        bubbleNorm.x = l / window.innerWidth;
+        bubbleNorm.y = t / window.innerHeight;
+      });
+
+      const endDrag = () => { dragging = false; bubble.classList.remove('dragging'); };
+      bubble.addEventListener('pointerup',     endDrag);
+      bubble.addEventListener('pointercancel', endDrag);
+    })();
+
+    // ── Countdown ──
+    function runCountdown() {
+      return new Promise(resolve => {
+        const overlay = document.getElementById('countdown');
+        const numEl   = document.getElementById('countdown-num');
+        overlay.classList.add('active');
+        let count = 3;
+
+        function tick() {
+          numEl.textContent = count;
+          numEl.classList.remove('pop');
+          void numEl.offsetWidth; // force reflow to restart animation
+          numEl.classList.add('pop');
+          count--;
+          if (count > 0) {
+            setTimeout(tick, 850);
+          } else {
+            setTimeout(() => { overlay.classList.remove('active'); resolve(); }, 850);
+          }
+        }
+        tick();
+      });
+    }
+
+    // ── Timer helpers ──
+    function startTimer() {
+      elapsedSeconds = 0;
+      isPaused = false;
+      updateTimerDisplay();
+      timerInterval = setInterval(() => {
+        if (!isPaused) { elapsedSeconds++; updateTimerDisplay(); }
+      }, 1000);
+    }
+
+    function stopTimer() {
+      clearInterval(timerInterval);
+      timerInterval = null;
+    }
+
+    function updateTimerDisplay() {
+      const m = Math.floor(elapsedSeconds / 60);
+      const s = String(elapsedSeconds % 60).padStart(2, '0');
+      const text = `${m}:${s}`;
+      document.getElementById('recTimer').textContent = text;
+      if (pipWindow) {
+        const el = pipWindow.document.getElementById('pip-timer');
+        if (el) el.textContent = text;
+      }
+    }
+
+    function setRecordingState(paused) {
+      isPaused = paused;
+      const dot        = document.getElementById('recDot');
+      const pauseIcon  = document.getElementById('pauseIcon');
+      const resumeIcon = document.getElementById('resumeIcon');
+      const pauseBtn   = document.getElementById('pauseBtn');
+      dot.classList.toggle('recording', !paused);
+      dot.classList.toggle('paused',    paused);
+      pauseIcon.style.display  = paused ? 'none' : '';
+      resumeIcon.style.display = paused ? ''     : 'none';
+      pauseBtn.title = paused ? 'Resume' : 'Pause';
+
+      // Sync PiP window state
+      if (pipWindow) {
+        const pd  = pipWindow.document.getElementById('pip-dot');
+        const ppi = pipWindow.document.getElementById('pip-pause-icon');
+        const pri = pipWindow.document.getElementById('pip-resume-icon');
+        const ppb = pipWindow.document.getElementById('pip-pause');
+        if (pd)  { pd.classList.toggle('recording', !paused); pd.classList.toggle('paused', paused); }
+        if (ppi) ppi.style.display = paused ? 'none' : '';
+        if (pri) pri.style.display = paused ? '' : 'none';
+        if (ppb) ppb.title = paused ? 'Resume' : 'Pause';
+      }
+    }
+
+    function buildDisplayConstraints() {
+      const surfaceHint = { monitor: 'monitor', window: 'window', browser: 'browser' }[selectedSurface];
+      return {
+        video: { displaySurface: surfaceHint, frameRate: 30 },
+        audio: true,
+      };
+    }
+
+    async function buildMixedAudioTrack(displayStreamArg) {
+      audioCtx = new AudioContext();
+      const dest = audioCtx.createMediaStreamDestination();
+      let sourceCount = 0;
+
+      const systemTracks = displayStreamArg.getAudioTracks();
+      if (systemTracks.length > 0) {
+        audioCtx.createMediaStreamSource(new MediaStream(systemTracks)).connect(dest);
+        sourceCount++;
+      }
+
+      if (micOn) {
+        try {
+          micStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+          audioCtx.createMediaStreamSource(micStream).connect(dest);
+          sourceCount++;
+        } catch (err) {
+          console.warn('Mic unavailable, falling back to system audio only:', err.message);
+        }
+      }
+
+      if (sourceCount === 0) {
+        audioCtx.close();
+        audioCtx = null;
+        return null;
+      }
+
+      return dest.stream.getAudioTracks()[0];
+    }
+
+    /**
+     * Canvas compositing path (webcam enabled).
+     *
+     * Draws the screen capture + a circular mirrored webcam bubble onto a
+     * hidden canvas at 20 fps. Returns the canvas video track.
+     *
+     * Resolution is capped at 1080p while preserving the source aspect ratio.
+     */
+    async function buildCompositeVideoTrack(displayStreamArg) {
+      const vt = displayStreamArg.getVideoTracks()[0];
+      const { width: sw = 1280, height: sh = 720 } = vt.getSettings();
+
+      // Cap at 1080p
+      const MAX_W = 1920, MAX_H = 1080;
+      let cw = sw, ch = sh;
+      if (cw > MAX_W || ch > MAX_H) {
+        const r = Math.min(MAX_W / cw, MAX_H / ch);
+        cw = Math.round(cw * r);
+        ch = Math.round(ch * r);
+      }
+
+      const canvas = document.createElement('canvas');
+      canvas.width  = cw;
+      canvas.height = ch;
+      const ctx = canvas.getContext('2d');
+
+      // Off-screen source elements — never attached to DOM
+      const screenVid = Object.assign(document.createElement('video'), { muted: true, playsInline: true });
+      screenVid.srcObject = displayStreamArg;
+      await screenVid.play();
+
+      let camVid = null;
+      if (webcamStream) {
+        camVid = Object.assign(document.createElement('video'), { muted: true, playsInline: true });
+        camVid.srcObject = webcamStream;
+        await camVid.play();
+      }
+
+      // Bubble occupies 20% of the smaller canvas dimension
+      const bubbleSz = Math.round(Math.min(cw, ch) * 0.20);
+
+      canvasInterval = setInterval(() => {
+        // 1. Draw full screen frame
+        ctx.drawImage(screenVid, 0, 0, cw, ch);
+
+        // 2. Draw mirrored webcam as a circular inset
+        if (camVid) {
+          const bx = Math.round(bubbleNorm.x * cw);
+          const by = Math.round(bubbleNorm.y * ch);
+          const r  = bubbleSz / 2;
+
+          ctx.save();
+          // Clip to circle
+          ctx.beginPath();
+          ctx.arc(bx + r, by + r, r, 0, Math.PI * 2);
+          ctx.clip();
+          // Mirror: translate to right edge of bubble, scale x by -1
+          ctx.translate(bx + bubbleSz, by);
+          ctx.scale(-1, 1);
+          ctx.drawImage(camVid, 0, 0, bubbleSz, bubbleSz);
+          ctx.restore();
+
+          // Subtle ring so the bubble reads well over any background
+          ctx.save();
+          ctx.beginPath();
+          ctx.arc(bx + r, by + r, r, 0, Math.PI * 2);
+          ctx.strokeStyle = 'rgba(255,255,255,0.25)';
+          ctx.lineWidth   = Math.max(2, bubbleSz * 0.015);
+          ctx.stroke();
+          ctx.restore();
+        }
+      }, 50); // 20 fps draw loop; canvas.captureStream(20) throttles output
+
+      return canvas.captureStream(20).getVideoTracks()[0];
+    }
+
+    // ── Done screen ──
+    function showDoneScreen(blob) {
+      const doneVideo = document.getElementById('done-preview');
+      if (doneVideo.src) URL.revokeObjectURL(doneVideo.src);
+      doneVideo.src = URL.createObjectURL(blob);
+      document.getElementById('recording-screen').classList.remove('active');
+      document.getElementById('done-screen').classList.add('active');
+    }
+
+    document.getElementById('downloadBtn').addEventListener('click', () => {
+      if (!lastBlob) return;
+      const url = URL.createObjectURL(lastBlob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = lastFilename;
+      a.click();
+      URL.revokeObjectURL(url);
+    });
+
+    // ── MP4 export via FFmpeg.wasm (single-threaded, no SharedArrayBuffer needed) ──
+    let ffmpegInstance = null;
+
+    async function getFFmpeg() {
+      if (ffmpegInstance) return ffmpegInstance;
+      // Dynamic ESM import from CDN — works inside a regular <script> tag
+      const { FFmpeg }    = await import('https://cdn.jsdelivr.net/npm/@ffmpeg/ffmpeg@0.12.10/dist/esm/index.js');
+      const { toBlobURL } = await import('https://cdn.jsdelivr.net/npm/@ffmpeg/util@0.12.1/dist/esm/index.js');
+      const ff  = new FFmpeg();
+      // toBlobURL re-hosts remote assets as local blob:// URLs, bypassing
+      // same-origin restrictions on the Worker that FFmpeg spins up internally.
+      const base = 'https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.6/dist/umd';
+      await ff.load({
+        coreURL: await toBlobURL(`${base}/ffmpeg-core.js`,   'text/javascript'),
+        wasmURL: await toBlobURL(`${base}/ffmpeg-core.wasm`, 'application/wasm'),
+      });
+      ffmpegInstance = ff;
+      return ff;
+    }
+
+    async function exportToMP4() {
+      if (!lastBlob) return;
+      const exportBtn = document.getElementById('exportBtn');
+      const dlBtn     = document.getElementById('downloadBtn');
+      const newBtn    = document.getElementById('newRecBtn');
+      const progress  = document.getElementById('mp4Progress');
+      const bar       = document.getElementById('mp4ProgressBar');
+      const label     = document.getElementById('mp4ProgressLabel');
+
+      [exportBtn, dlBtn, newBtn].forEach(b => b.disabled = true);
+      progress.style.display = 'flex';
+      bar.style.width = '0%';
+      label.textContent = 'Loading FFmpeg…';
+
+      let ff = null;
+      let onProgress = null;
+      try {
+        ff = await getFFmpeg();
+
+        onProgress = ({ progress: p }) => {
+          bar.style.width = Math.round(p * 100) + '%';
+          label.textContent = `Converting… ${Math.round(p * 100)}%`;
+        };
+        ff.on('progress', onProgress);
+
+        await ff.writeFile('input.webm', new Uint8Array(await lastBlob.arrayBuffer()));
+        label.textContent = 'Converting…';
+
+        await ff.exec([
+          '-i', 'input.webm',
+          '-c:v', 'libx264', '-preset', 'fast', '-crf', '23',
+          '-c:a', 'aac',
+          '-movflags', '+faststart',
+          'output.mp4',
+        ]);
+
+        const out  = await ff.readFile('output.mp4');
+        const blob = new Blob([out.buffer], { type: 'video/mp4' });
+        await ff.deleteFile('input.webm');
+        await ff.deleteFile('output.mp4');
+
+        const url = URL.createObjectURL(blob);
+        Object.assign(document.createElement('a'), {
+          href: url,
+          download: lastFilename.replace(/\.webm$/i, '.mp4'),
+        }).click();
+        URL.revokeObjectURL(url);
+
+        bar.style.width = '100%';
+        label.textContent = 'Done!';
+        setTimeout(() => { progress.style.display = 'none'; }, 2000);
+      } catch (err) {
+        label.textContent = `Export failed: ${err.message}`;
+        console.error('MP4 export error:', err);
+      } finally {
+        if (ff && onProgress) try { ff.off('progress', onProgress); } catch (_) {}
+        [exportBtn, dlBtn, newBtn].forEach(b => b.disabled = false);
+      }
+    }
+
+    document.getElementById('exportBtn').addEventListener('click', exportToMP4);
+
+    document.getElementById('newRecBtn').addEventListener('click', () => {
+      const doneVideo = document.getElementById('done-preview');
+      URL.revokeObjectURL(doneVideo.src);
+      doneVideo.src = '';
+      lastBlob = null;
+      document.getElementById('done-screen').classList.remove('active');
+      resetToSetup();
+    });
+
+    // ── Start ──
+    document.getElementById('startBtn').addEventListener('click', async () => {
+      showError('');
+
+      // 1. Capture display
+      try {
+        displayStream = await navigator.mediaDevices.getDisplayMedia(buildDisplayConstraints());
+      } catch (err) {
+        showError(err.name === 'NotAllowedError'
+          ? 'Permission denied — please allow screen sharing.'
+          : `Error: ${err.message}`);
+        return;
+      }
+
+      // 2. Build mixed audio (system + optional mic)
+      const mixedAudioTrack = await buildMixedAudioTrack(displayStream);
+
+      // 3. Optionally capture webcam
+      if (webcamOn) {
+        try {
+          // facingMode:'user' selects the front camera on mobile devices
+          webcamStream = await navigator.mediaDevices.getUserMedia({
+            video: { facingMode: 'user', width: { ideal: 1280 }, height: { ideal: 720 } },
+            audio: false,
+          });
+          const webcamVid = document.getElementById('webcam-vid');
+          webcamVid.srcObject = webcamStream;
+          // Explicit play() is required on some browsers when srcObject is set dynamically
+          await webcamVid.play().catch(() => {});
+          document.getElementById('webcam-bubble').classList.add('visible');
+        } catch (err) {
+          // Show a visible warning instead of silently swallowing the error
+          showError(`Camera unavailable: ${err.message}`);
+          webcamStream = null;
+        }
+      }
+
+      // 4. Build the recording video track.
+      //    • Webcam on  → canvas composite (screen + cam circle), capped at 1080p
+      //    • Webcam off → raw display track, no canvas overhead
+      let recordingVideoTrack;
+      if (webcamStream) {
+        recordingVideoTrack = await buildCompositeVideoTrack(displayStream);
+      } else {
+        recordingVideoTrack = displayStream.getVideoTracks()[0];
+      }
+
+      const recordingTracks = [recordingVideoTrack];
+      if (mixedAudioTrack) recordingTracks.push(mixedAudioTrack);
+      const recordingStream = new MediaStream(recordingTracks);
+
+      // 5. Switch UI — live preview shows the raw display stream
+      document.getElementById('setup').style.display = 'none';
+      document.getElementById('recording-screen').classList.add('active');
+      document.getElementById('preview').srcObject = displayStream;
+
+      // 6. 3-2-1 countdown
+      await runCountdown();
+
+      // 7. Set up MediaRecorder on the composite stream
+      chunks = [];
+      const mimeType = pickMimeType();
+      try {
+        mediaRecorder = new MediaRecorder(recordingStream, mimeType ? { mimeType } : {});
+      } catch (err) {
+        stopAllTracks();
+        resetToSetup();
+        showError(`Recorder error: ${err.message}`);
+        return;
+      }
+
+      mediaRecorder.ondataavailable = e => {
+        if (e.data && e.data.size > 0) chunks.push(e.data);
+      };
+
+      mediaRecorder.onstop = () => {
+        const blob = new Blob(chunks, { type: mimeType || 'video/webm' });
+        lastBlob     = blob;
+        lastFilename = `recording-${new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19)}.webm`;
+        showDoneScreen(blob);
+      };
+
+      // Handle user stopping via browser's native "Stop sharing" button
+      displayStream.getVideoTracks()[0].addEventListener('ended', () => {
+        if (mediaRecorder.state !== 'inactive') {
+          stopTimer();
+          stopAllTracks();
+          mediaRecorder.stop();
+        }
+      });
+
+      // 8. Go!
+      mediaRecorder.start(1000);
+      startTimer();
+      setRecordingState(false);
+      openPiP(); // floating mini-control window (no-op if unsupported)
+    });
+
+    // ── Pause / Resume ──
+    document.getElementById('pauseBtn').addEventListener('click', () => {
+      if (!mediaRecorder || mediaRecorder.state === 'inactive') return;
+      if (mediaRecorder.state === 'recording') {
+        mediaRecorder.pause();
+        setRecordingState(true);
+      } else if (mediaRecorder.state === 'paused') {
+        mediaRecorder.resume();
+        setRecordingState(false);
+      }
+    });
+
+    // ── Stop ──
+    document.getElementById('stopBtn').addEventListener('click', () => {
+      if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+        stopTimer();
+        stopAllTracks();
+        mediaRecorder.stop();
+      }
+    });
+
+    function stopAllTracks() {
+      closePiP();
+      // Stop canvas draw loop first
+      if (canvasInterval) { clearInterval(canvasInterval); canvasInterval = null; }
+      displayStream?.getTracks().forEach(t => t.stop());
+      micStream?.getTracks().forEach(t => t.stop());
+      webcamStream?.getTracks().forEach(t => t.stop());
+      if (audioCtx) { audioCtx.close(); audioCtx = null; }
+      displayStream = null;
+      micStream = null;
+      webcamStream = null;
+      // Hide bubble and clear any drag-applied inline styles
+      const bubble = document.getElementById('webcam-bubble');
+      bubble.classList.remove('visible');
+      bubble.style.cssText = '';
+    }
+
+    function resetToSetup() {
+      document.getElementById('preview').srcObject = null;
+      document.getElementById('recording-screen').classList.remove('active');
+      document.getElementById('setup').style.display = 'flex';
+      setRecordingState(false);
+      elapsedSeconds = 0;
+      updateTimerDisplay();
+      // Reset bubble position for next session
+      bubbleNorm = { x: 0.02, y: 0.76 };
+    }
+  </script>
+
+</body>
+</html>
