@@ -1158,10 +1158,10 @@
       URL.revokeObjectURL(url);
     });
 
-    // ── MP4 export via FFmpeg.wasm 0.11.x ──
-    // Uses <script> tag injection instead of import() — required for file:// pages
-    // because Chrome blocks cross-origin dynamic ESM imports on file:// origins.
-    // The 0.11.x single-threaded core needs no SharedArrayBuffer.
+    // ── MP4 export via FFmpeg.wasm 0.12.x (single-threaded core) ──
+    // • <script> tag injection avoids Chrome's file:// block on dynamic import()
+    // • @ffmpeg/core (no -mt suffix) = single-threaded → no SharedArrayBuffer needed
+    // • toBlobURL re-hosts CDN assets as blob:// so the internal Worker can fetch them
     let ffmpegInstance = null;
 
     function loadScript(src) {
@@ -1177,15 +1177,18 @@
 
     async function getFFmpeg() {
       if (ffmpegInstance) return ffmpegInstance;
-      await loadScript('https://unpkg.com/@ffmpeg/ffmpeg@0.11.6/dist/ffmpeg.min.js');
-      const { createFFmpeg, fetchFile } = window.FFmpeg;
-      const ff = createFFmpeg({
-        corePath: 'https://unpkg.com/@ffmpeg/core@0.11.0/dist/ffmpeg-core.js',
-        log: false,
+      await loadScript('https://unpkg.com/@ffmpeg/ffmpeg@0.12.10/dist/umd/index.js');
+      await loadScript('https://unpkg.com/@ffmpeg/util@0.12.1/dist/umd/index.js');
+      const { FFmpeg }    = window.FFmpegWASM;
+      const { toBlobURL } = window.FFmpegUtil;
+      const ff  = new FFmpeg();
+      const base = 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/umd';
+      await ff.load({
+        coreURL: await toBlobURL(`${base}/ffmpeg-core.js`,   'text/javascript'),
+        wasmURL: await toBlobURL(`${base}/ffmpeg-core.wasm`, 'application/wasm'),
       });
-      await ff.load();
-      ffmpegInstance = { ff, fetchFile };
-      return ffmpegInstance;
+      ffmpegInstance = ff;
+      return ff;
     }
 
     async function exportToMP4() {
@@ -1202,30 +1205,33 @@
       bar.style.width = '0%';
       label.textContent = 'Loading FFmpeg…';
 
+      let ff = null;
+      let onProgress = null;
       try {
-        const { ff, fetchFile } = await getFFmpeg();
+        ff = await getFFmpeg();
 
-        ff.setProgress(({ ratio }) => {
-          const pct = Math.round(Math.max(0, Math.min(1, ratio)) * 100);
+        onProgress = ({ progress: p }) => {
+          const pct = Math.round(p * 100);
           bar.style.width = pct + '%';
           label.textContent = `Converting… ${pct}%`;
-        });
+        };
+        ff.on('progress', onProgress);
 
-        ff.FS('writeFile', 'input.webm', await fetchFile(lastBlob));
+        await ff.writeFile('input.webm', new Uint8Array(await lastBlob.arrayBuffer()));
         label.textContent = 'Converting…';
 
-        await ff.run(
+        await ff.exec([
           '-i', 'input.webm',
           '-c:v', 'libx264', '-preset', 'fast', '-crf', '23',
           '-c:a', 'aac',
           '-movflags', '+faststart',
-          'output.mp4'
-        );
+          'output.mp4',
+        ]);
 
-        const data = ff.FS('readFile', 'output.mp4');
-        const blob = new Blob([data.buffer], { type: 'video/mp4' });
-        try { ff.FS('unlink', 'input.webm'); } catch (_) {}
-        try { ff.FS('unlink', 'output.mp4'); } catch (_) {}
+        const out  = await ff.readFile('output.mp4');
+        const blob = new Blob([out.buffer], { type: 'video/mp4' });
+        await ff.deleteFile('input.webm');
+        await ff.deleteFile('output.mp4');
 
         const url = URL.createObjectURL(blob);
         Object.assign(document.createElement('a'), {
@@ -1241,6 +1247,7 @@
         label.textContent = `Export failed: ${err.message}`;
         console.error('MP4 export error:', err);
       } finally {
+        if (ff && onProgress) try { ff.off('progress', onProgress); } catch (_) {}
         [exportBtn, dlBtn, newBtn].forEach(b => b.disabled = false);
       }
     }
