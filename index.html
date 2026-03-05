@@ -1175,14 +1175,19 @@
       });
     }
 
+    async function toBlobURL(url, mimeType) {
+      const resp = await fetch(url);
+      if (!resp.ok) throw new Error(`Failed to fetch ${url}: ${resp.status}`);
+      const buf = await resp.arrayBuffer();
+      return URL.createObjectURL(new Blob([buf], { type: mimeType }));
+    }
+
     async function getFFmpeg() {
       if (ffmpegInstance) return ffmpegInstance;
-      await loadScript('https://unpkg.com/@ffmpeg/ffmpeg@0.12.10/dist/umd/index.js');
-      await loadScript('https://unpkg.com/@ffmpeg/util@0.12.1/dist/umd/index.js');
-      const { FFmpeg }    = window.FFmpegWASM;
-      const { toBlobURL } = window.FFmpegUtil;
+      await loadScript('https://cdn.jsdelivr.net/npm/@ffmpeg/ffmpeg@0.12.6/dist/umd/index.js');
+      const { FFmpeg } = window.FFmpegWASM;
       const ff  = new FFmpeg();
-      const base = 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/umd';
+      const base = 'https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.6/dist/umd';
       await ff.load({
         coreURL: await toBlobURL(`${base}/ffmpeg-core.js`,   'text/javascript'),
         wasmURL: await toBlobURL(`${base}/ffmpeg-core.wasm`, 'application/wasm'),
