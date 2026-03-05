@@ -1184,10 +1184,10 @@
 
     async function getFFmpeg() {
       if (ffmpegInstance) return ffmpegInstance;
-      await loadScript('https://cdn.jsdelivr.net/npm/@ffmpeg/ffmpeg@0.12.6/dist/umd/index.js');
+      await loadScript('https://cdn.jsdelivr.net/npm/@ffmpeg/ffmpeg@0.12.15/dist/umd/ffmpeg.js');
       const { FFmpeg } = window.FFmpegWASM;
       const ff  = new FFmpeg();
-      const base = 'https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.6/dist/umd';
+      const base = 'https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.10/dist/umd';
       await ff.load({
         coreURL: await toBlobURL(`${base}/ffmpeg-core.js`,   'text/javascript'),
         wasmURL: await toBlobURL(`${base}/ffmpeg-core.wasm`, 'application/wasm'),
