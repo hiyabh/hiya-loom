@@ -1451,26 +1451,16 @@
       }
     });
 
-    // ── Webcam PiP button ──
+    // ── Webcam PiP button — opens Document PiP (circular, we control HTML) ──
     document.getElementById('camPipBtn').addEventListener('click', async () => {
       const btn = document.getElementById('camPipBtn');
-      const vid = document.getElementById('webcam-vid');
-      try {
-        if (document.pictureInPictureElement) {
-          await document.exitPictureInPicture();
-          btn.classList.remove('active');
-        } else if (document.pictureInPictureEnabled) {
-          await vid.requestPictureInPicture();
-          btn.classList.add('active');
-        }
-      } catch (err) {
-        console.warn('Webcam PiP:', err.message);
+      if (pipWindow) {
+        closePiP();
+        btn.classList.remove('active');
+      } else {
+        await openPiP();
+        btn.classList.toggle('active', !!pipWindow);
       }
-    });
-
-    // Track PiP exit (e.g. user closes the PiP window via browser UI)
-    document.getElementById('webcam-vid').addEventListener('leavepictureinpicture', () => {
-      document.getElementById('camPipBtn').classList.remove('active');
     });
 
     function stopAllTracks() {
