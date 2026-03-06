@@ -1314,6 +1314,10 @@
           // Explicit play() is required on some browsers when srcObject is set dynamically
           await webcamVid.play().catch(() => {});
           document.getElementById('webcam-bubble').classList.add('visible');
+          // Float webcam above all windows (stays visible when switching apps)
+          if (document.pictureInPictureEnabled) {
+            webcamVid.requestPictureInPicture().catch(() => {});
+          }
         } catch (err) {
           // Show a visible warning instead of silently swallowing the error
           showError(`Camera unavailable: ${err.message}`);
@@ -1405,6 +1409,7 @@
 
     function stopAllTracks() {
       closePiP();
+      if (document.pictureInPictureElement) document.exitPictureInPicture().catch(() => {});
       // Stop canvas draw loop first
       if (canvasInterval) { clearInterval(canvasInterval); canvasInterval = null; }
       displayStream?.getTracks().forEach(t => t.stop());
