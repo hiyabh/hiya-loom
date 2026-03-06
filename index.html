@@ -1232,7 +1232,7 @@
         ff = await getFFmpeg();
 
         onProgress = ({ progress: p }) => {
-          const pct = Math.round(p * 100);
+          const pct = Math.min(99, Math.max(0, Math.round(p * 100)));
           bar.style.width = pct + '%';
           label.textContent = `Converting… ${pct}%`;
         };
