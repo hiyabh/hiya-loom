@@ -818,7 +818,11 @@
     async function openPiP() {
       if (!('documentPictureInPicture' in window)) return;
       try {
-        pipWindow = await documentPictureInPicture.requestWindow({ width: 272, height: 68 });
+        const hasCam = !!webcamStream;
+        pipWindow = await documentPictureInPicture.requestWindow({
+          width:  hasCam ? 192 : 272,
+          height: hasCam ? 252 : 68,
+        });
 
         const style = pipWindow.document.createElement('style');
         style.textContent = `
@@ -828,20 +832,31 @@
             color: #e2e2f0;
             font-family: system-ui, -apple-system, sans-serif;
             display: flex;
+            flex-direction: column;
             align-items: center;
-            justify-content: center;
+            justify-content: ${hasCam ? 'flex-start' : 'center'};
+            gap: 10px;
             height: 100vh;
+            padding: ${hasCam ? '12px 8px 10px' : '0 8px'};
+          }
+          #pip-cam {
+            width: 160px; height: 160px;
+            border-radius: 50%;
+            object-fit: cover;
+            transform: scaleX(-1);
+            border: 2.5px solid rgba(255,255,255,0.2);
+            flex-shrink: 0;
+            display: block;
           }
           .pip-bar {
             display: flex;
             align-items: center;
             gap: 6px;
-            padding: 10px 14px;
+            padding: 8px 12px;
             background: #16161d;
             border-radius: 12px;
             border: 1px solid rgba(255,255,255,0.08);
             width: 100%;
-            margin: 0 8px;
           }
           .pip-dot {
             width: 8px; height: 8px;
@@ -876,7 +891,19 @@
         `;
         pipWindow.document.head.appendChild(style);
 
-        pipWindow.document.body.innerHTML = `
+        // Add webcam video if active — MediaStream can be shared across windows
+        if (hasCam) {
+          const cam = pipWindow.document.createElement('video');
+          cam.id = 'pip-cam';
+          cam.srcObject = webcamStream;
+          cam.autoplay = true;
+          cam.muted    = true;
+          cam.playsInline = true;
+          pipWindow.document.body.appendChild(cam);
+          cam.play().catch(() => {});
+        }
+
+        pipWindow.document.body.insertAdjacentHTML('beforeend', `
           <div class="pip-bar">
             <div class="pip-dot recording" id="pip-dot"></div>
             <span class="pip-timer" id="pip-timer">0:00</span>
@@ -896,7 +923,7 @@
               </svg>
             </button>
           </div>
-        `;
+        `);
 
         pipWindow.document.getElementById('pip-pause').addEventListener('click', () => {
           document.getElementById('pauseBtn').click();
@@ -1314,10 +1341,6 @@
           // Explicit play() is required on some browsers when srcObject is set dynamically
           await webcamVid.play().catch(() => {});
           document.getElementById('webcam-bubble').classList.add('visible');
-          // Float webcam above all windows (stays visible when switching apps)
-          if (document.pictureInPictureEnabled) {
-            webcamVid.requestPictureInPicture().catch(() => {});
-          }
         } catch (err) {
           // Show a visible warning instead of silently swallowing the error
           showError(`Camera unavailable: ${err.message}`);
@@ -1409,7 +1432,6 @@
 
     function stopAllTracks() {
       closePiP();
-      if (document.pictureInPictureElement) document.exitPictureInPicture().catch(() => {});
       // Stop canvas draw loop first
       if (canvasInterval) { clearInterval(canvasInterval); canvasInterval = null; }
       displayStream?.getTracks().forEach(t => t.stop());
