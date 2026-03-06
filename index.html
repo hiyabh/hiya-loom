@@ -1168,11 +1168,15 @@
       if (location.protocol !== 'file:') return;
       const RealWorker = window.Worker;
       window.Worker = function(url, opts) {
-        if (typeof url === 'string' && /^https?:\/\//.test(url)) {
-          const bootstrap = `importScripts(${JSON.stringify(url)});`;
+        // Vite bundles pass new URL(...) objects, not plain strings — coerce to string
+        const href = url != null ? String(url) : '';
+        if (/^https?:\/\//.test(href)) {
+          // Workers can't load cross-origin scripts as the initial URL from file://,
+          // but importScripts() inside the worker CAN load cross-origin scripts.
+          const bootstrap = `importScripts(${JSON.stringify(href)});`;
           const blobURL   = URL.createObjectURL(new Blob([bootstrap], { type: 'text/javascript' }));
           const newOpts   = Object.assign({}, opts);
-          delete newOpts.type; // importScripts only works in classic workers
+          delete newOpts.type; // importScripts is classic-worker only
           return new RealWorker(blobURL, newOpts);
         }
         return new RealWorker(url, opts);
@@ -1193,22 +1197,16 @@
       });
     }
 
-    async function toBlobURL(url, mimeType) {
-      const resp = await fetch(url);
-      if (!resp.ok) throw new Error(`Failed to fetch ${url}: ${resp.status}`);
-      const buf = await resp.arrayBuffer();
-      return URL.createObjectURL(new Blob([buf], { type: mimeType }));
-    }
-
     async function getFFmpeg() {
       if (ffmpegInstance) return ffmpegInstance;
       await loadScript('https://cdn.jsdelivr.net/npm/@ffmpeg/ffmpeg@0.12.15/dist/umd/ffmpeg.js');
       const { FFmpeg } = window.FFmpegWASM;
       const ff  = new FFmpeg();
+      // Pass CDN URLs directly — the worker fetches them via CORS (jsDelivr has CORS headers)
       const base = 'https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.10/dist/umd';
       await ff.load({
-        coreURL: await toBlobURL(`${base}/ffmpeg-core.js`,   'text/javascript'),
-        wasmURL: await toBlobURL(`${base}/ffmpeg-core.wasm`, 'application/wasm'),
+        coreURL: `${base}/ffmpeg-core.js`,
+        wasmURL: `${base}/ffmpeg-core.wasm`,
       });
       ffmpegInstance = ff;
       return ff;
