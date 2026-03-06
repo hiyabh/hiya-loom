@@ -379,6 +379,18 @@
 
     #stopBtn:hover { background: rgba(232, 68, 90, 0.32); }
 
+    /* webcam pip */
+    #camPipBtn {
+      width: 36px;
+      height: 36px;
+      background: rgba(255,255,255,0.08);
+      color: var(--muted);
+      display: none;
+    }
+
+    #camPipBtn:hover { background: rgba(255,255,255,0.14); color: var(--text); }
+    #camPipBtn.active { color: var(--accent); background: var(--accent-dim); }
+
     /* ── Countdown overlay ── */
     #countdown {
       display: none;
@@ -708,6 +720,14 @@
         <!-- play icon (shown when paused) -->
         <svg id="resumeIcon" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="display:none">
           <path d="M6 4l14 8-14 8V4z"/>
+        </svg>
+      </button>
+
+      <!-- Webcam PiP (shown only when webcam is active) -->
+      <button class="bar-btn" id="camPipBtn" title="Float webcam above all windows">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M23 7 16 12 23 17V7z"/>
+          <rect x="1" y="5" width="15" height="14" rx="2"/>
         </svg>
       </button>
 
@@ -1341,6 +1361,7 @@
           // Explicit play() is required on some browsers when srcObject is set dynamically
           await webcamVid.play().catch(() => {});
           document.getElementById('webcam-bubble').classList.add('visible');
+          document.getElementById('camPipBtn').style.display = '';
         } catch (err) {
           // Show a visible warning instead of silently swallowing the error
           showError(`Camera unavailable: ${err.message}`);
@@ -1430,8 +1451,33 @@
       }
     });
 
+    // ── Webcam PiP button ──
+    document.getElementById('camPipBtn').addEventListener('click', async () => {
+      const btn = document.getElementById('camPipBtn');
+      const vid = document.getElementById('webcam-vid');
+      try {
+        if (document.pictureInPictureElement) {
+          await document.exitPictureInPicture();
+          btn.classList.remove('active');
+        } else if (document.pictureInPictureEnabled) {
+          await vid.requestPictureInPicture();
+          btn.classList.add('active');
+        }
+      } catch (err) {
+        console.warn('Webcam PiP:', err.message);
+      }
+    });
+
+    // Track PiP exit (e.g. user closes the PiP window via browser UI)
+    document.getElementById('webcam-vid').addEventListener('leavepictureinpicture', () => {
+      document.getElementById('camPipBtn').classList.remove('active');
+    });
+
     function stopAllTracks() {
       closePiP();
+      if (document.pictureInPictureElement) document.exitPictureInPicture().catch(() => {});
+      document.getElementById('camPipBtn').style.display = 'none';
+      document.getElementById('camPipBtn').classList.remove('active');
       // Stop canvas draw loop first
       if (canvasInterval) { clearInterval(canvasInterval); canvasInterval = null; }
       displayStream?.getTracks().forEach(t => t.stop());
