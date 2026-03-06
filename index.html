@@ -1161,7 +1161,25 @@
     // ── MP4 export via FFmpeg.wasm 0.12.x (single-threaded core) ──
     // • <script> tag injection avoids Chrome's file:// block on dynamic import()
     // • @ffmpeg/core (no -mt suffix) = single-threaded → no SharedArrayBuffer needed
-    // • toBlobURL re-hosts CDN assets as blob:// so the internal Worker can fetch them
+    // • Worker patch: Chrome blocks new Worker('https://...') from file:// pages,
+    //   but importScripts() inside a worker CAN load cross-origin scripts.
+    //   We intercept Worker() and wrap CDN URLs in a blob bootstrap script.
+    (function patchWorkerForFileProtocol() {
+      if (location.protocol !== 'file:') return;
+      const RealWorker = window.Worker;
+      window.Worker = function(url, opts) {
+        if (typeof url === 'string' && /^https?:\/\//.test(url)) {
+          const bootstrap = `importScripts(${JSON.stringify(url)});`;
+          const blobURL   = URL.createObjectURL(new Blob([bootstrap], { type: 'text/javascript' }));
+          const newOpts   = Object.assign({}, opts);
+          delete newOpts.type; // importScripts only works in classic workers
+          return new RealWorker(blobURL, newOpts);
+        }
+        return new RealWorker(url, opts);
+      };
+      window.Worker.prototype = RealWorker.prototype;
+    })();
+
     let ffmpegInstance = null;
 
     function loadScript(src) {
