@@ -1361,7 +1361,7 @@
           // Explicit play() is required on some browsers when srcObject is set dynamically
           await webcamVid.play().catch(() => {});
           document.getElementById('webcam-bubble').classList.add('visible');
-          document.getElementById('camPipBtn').style.display = '';
+          document.getElementById('camPipBtn').style.display = 'flex';
         } catch (err) {
           // Show a visible warning instead of silently swallowing the error
           showError(`Camera unavailable: ${err.message}`);
